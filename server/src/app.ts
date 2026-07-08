@@ -4,6 +4,7 @@ import helmet from "helmet";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
+import authRoutes from"./routes/auth.routes";
 
 const app = express();
 
@@ -20,4 +21,5 @@ app.get("/", (req, res) => {
   res.send(" Veloura Backend is Running!");
 });
 
+app.use("/api/auth", authRoutes);
 export default app;
