@@ -1,0 +1,32 @@
+import multer from "multer";
+
+const storage = multer.memoryStorage();
+
+const fileFilter: multer.Options["fileFilter"] = (
+  req,
+  file,
+  cb//callback
+) => {
+  const allowedTypes = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+  ];
+
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only JPG, JPEG, PNG and WEBP images are allowed."));
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+});
+
+export default upload;

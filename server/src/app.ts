@@ -5,6 +5,7 @@ import compression from "compression";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import authRoutes from"./routes/auth.routes";
+import clothesRoutes from "./routes/clothes.routes";
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(helmet());
 app.use(compression());
 app.use(cookieParser());
 app.use(morgan("dev"));
+app.use("/api/clothes", clothesRoutes);
 
 //TEST ROUTE 
 app.get("/", (req, res) => {
