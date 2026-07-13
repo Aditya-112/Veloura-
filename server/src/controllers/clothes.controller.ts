@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
-import Clothes from "../models/clothes.model";
-import { uploadImage } from "../services/cloudinary.service";
 import { AuthRequest } from "../types/auth.types";
+
+import Clothes from "../models/clothes.model";
+
+import { uploadImage,deleteImage } from "../services/cloudinary.service";
+import { analyzeClothing } from "../services/gemini.service";
+import { ClothingCategory } from "../types/clothing.types";
 
 export const uploadClothes = async (
   req: AuthRequest,
@@ -16,48 +20,45 @@ export const uploadClothes = async (
       return;
     }
 
-    const {
-      category,
-      subcategory,
-      pattern,
-      material,
-      season,
-      occasion,
-      primaryColor,
-      secondaryColor,
-    } = req.body;
-
+    // Step 1: Upload to Cloudinary
     const uploadedImage = await uploadImage(req.file);
 
-    const cloth = new Clothes({
-      user: req.user?.id,
+    // Step 2: Analyze using Gemini
+    const metadata = await analyzeClothing(
+      req.file.buffer,
+      req.file.mimetype
+    );
 
-      imageUrl: uploadedImage.secure_url,
-      publicId: uploadedImage.public_id,
 
-      category,
-      subcategory,
+  const clothes = await Clothes.create({
+  user: req.user!.id,
 
-      color: {
-        primary: primaryColor,
-        secondary: secondaryColor || "",
-      },
+  imageUrl: uploadedImage.secure_url,
+  publicId: uploadedImage.public_id,
 
-      pattern: pattern ? [pattern] : [],
-      material: material ? [material] : [],
-      season: season ? [season] : [],
-      occasion: occasion ? [occasion] : [],
+  category: metadata.category,
+  subcategory: metadata.subcategory,
 
-      favorite: false,
-      timesUsed: 0,
-    });
+  color: {
+    primary: metadata.primaryColor,
+    secondary: metadata.secondaryColor,
+  },
 
-    const savedCloth = await cloth.save();
+  pattern: metadata.pattern,
+  material: metadata.material,
 
+  season: metadata.season,
+  occasion: metadata.occasion,
+
+  favorite: false,
+  timesUsed: 0,
+});
+
+    // Return everything to frontend
     res.status(201).json({
       success: true,
       message: "Clothing uploaded successfully.",
-      data: savedCloth,
+      data:clothes,
     });
 
   } catch (error) {
@@ -65,33 +66,155 @@ export const uploadClothes = async (
 
     res.status(500).json({
       success: false,
-      message: "Failed to upload clothing.",
+      message: "Failed to analyze clothing.",
     });
   }
 };
 
-export const getMyWardrobe = async(
-  req:AuthRequest,
-  res:Response
-): Promise<void>=>{
-  try{
-    const clothes = await Clothes.find({
-      user: req.user?.id,
-    }).sort({
-       createdAt: -1
+export const getMyWardrobe = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { category } = req.query;
+    const selectedCategory =
+  typeof category === "string" ? category.trim() : undefined;
+
+
+
+    const filter: {
+  user: string;
+  category?: ClothingCategory;
+} = {
+  user: req.user!.id,
+};
+
+if (
+  selectedCategory === "Top" ||
+  selectedCategory === "Bottom" ||
+  selectedCategory === "Shoes" ||
+  selectedCategory === "Outerwear" ||
+  selectedCategory === "Accessories"
+) {
+  filter.category = selectedCategory;
+}
+
+
+    const clothes = await Clothes.find(filter).sort({
+      createdAt: -1,
     });
 
     res.status(200).json({
       success: true,
-      count:clothes.length,
-      data:clothes,
+      count: clothes.length,
+      data: clothes,
     });
-  }catch(error){
-    console.error("Fetch Wardrobe Error:",error);
+
+  } catch (error) {
+    console.error("Fetch Wardrobe Error:", error);
 
     res.status(500).json({
+      success: false,
+      message: "Failed to fetch wardrobe.",
+    });
+  }
+};
+
+export const deleteClothing = async(
+  req:AuthRequest,
+  res: Response
+): Promise<void> =>{
+  try{
+    const{ id } = req.params;
+
+    const clothes = await Clothes.findOne({
+      _id:id,
+      user: req.user!.id,
+    });
+
+    if(!clothes){
+      res.status(404).json({
+        success:false,
+        message:"Clothing not found.",
+      });
+      return;
+    }
+    await deleteImage(clothes.publicId);
+    await clothes.deleteOne();
+    
+    res.status(200).json({
+      success:true,
+      message: "Clothing deleted successfully.",
+    });
+  } catch(error){
+    console.error("Delete Clothing Error:",error);
+    
+    res.status(500).json({
       success:false,
-      message:"Failed to fetch wardrobe.",
+      message:"Failed to delete clothing.",
+    });
+  }
+};
+    
+export const updateClothing = async(
+  req: AuthRequest,
+  res: Response
+): Promise<void> =>{
+  try{
+    const { id } = req.params;
+
+    const clothes = await Clothes.findOne({
+      _id:id,
+      user:req.user!.id,
+    });
+    if(!clothes){
+      res.status(404).json({
+        success :false,
+        message:"Clothing not found.",
+      });
+      return;
+    }
+    const{
+      category,
+      subcategory,
+      primaryColor,
+      secondaryColor,
+      pattern,
+      material,
+      season,
+      occasion,
+      favorite,
+    }=req.body;
+
+   clothes.category = category;
+    clothes.subcategory = subcategory;
+
+    clothes.color = {
+      primary: primaryColor,
+      secondary: secondaryColor,
+    };
+
+    clothes.pattern = pattern;
+    clothes.material = material;
+
+    clothes.season = season;
+    clothes.occasion = occasion;
+
+    clothes.favorite = favorite;
+
+    await clothes.save();
+
+    res.status(200).json({
+      success:true,
+       message: "Clothing updated successfully.",
+      data: clothes,
+    });
+  }catch(error){
+    console.error("Update Clothing Error:", error);
+    
+  res.status(500).json({
+      success: false,
+      message: "Failed to update clothing.",
     });
   }
 };
