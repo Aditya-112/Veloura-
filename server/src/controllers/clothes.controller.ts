@@ -218,3 +218,72 @@ export const updateClothing = async(
     });
   }
 };
+
+
+export const toggleFavorite = async(
+  req: AuthRequest,
+  res: Response
+): Promise<void> =>{
+  try{
+    const { id } = req.params;
+
+    const clothes = await Clothes.findOne({
+      _id:id,
+      user: req.user!.id,
+    });
+
+    if (!clothes) {
+      res.status(404).json({
+        success: false,
+        message: "Clothing not found.",
+      });
+      return;
+    }
+    //if fav-> falese => fav = false and same for true
+    clothes.favorite = !clothes.favorite;
+
+    await clothes.save();
+
+    res.status(200).json({
+      success:true,
+      message:"Favorite uploaded successfully.",
+      data: clothes,
+    });
+
+  }catch(error){
+    console.error("Toggle Favorite Error:",error);
+
+    res.status(500).json({
+      success:false,
+      message:"Failed to update favorite.",
+    });
+  }
+};
+
+export const getFavoriteClothes = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const clothes = await Clothes.find({
+      user: req.user!.id,
+      favorite: true,
+    }).sort({
+      createdAt: -1,
+    });
+
+    res.status(200).json({
+      success: true,
+      count: clothes.length,
+      data: clothes,
+    });
+
+  } catch (error) {
+    console.error("Get Favorites Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch favorite clothes.",
+    });
+  }
+};

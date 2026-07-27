@@ -17,6 +17,8 @@ if (req.headers.authorization?.startsWith("Bearer ")) {
 // From Cookie
 if (!token) {
   token = req.cookies.token;
+  // console.log("Token from cookie:");
+  // console.log(token);
 }
 
 if (!token) {
@@ -30,15 +32,18 @@ if (!token) {
       token,
       process.env.JWT_SECRET as string
     );
+    console.log("Decoded JWT:", decoded);
 
     req.user = decoded;
 
     next();
   } catch (error) {
-    res.status(401).json({
-      message: "Invalid Token",
-    });
-    return;
-  }
+  console.error("JWT Error:", error);
+
+   res.status(401).json({
+    message: "Invalid Token",
+  });
+  return;
+}
 };
 export default authMiddleware;

@@ -1,11 +1,19 @@
 import express from "express";
 import upload from "../middleware/upload.middleware";
-import {uploadClothes,getMyWardrobe,deleteClothing,updateClothing} from "../controllers/clothes.controller";
+import {uploadClothes,
+  getMyWardrobe,
+  deleteClothing,
+  updateClothing,
+  toggleFavorite,
+  getFavoriteClothes} from "../controllers/clothes.controller";
+
+
 import authMiddleware from "../middleware/auth.middleware";
 import { AudioResponseFormat } from "@google/genai";
-const router = express.Router();
 
-router.get("/", authMiddleware, getMyWardrobe);
+import validate from "../middleware/validate";
+import { updateClothingSchema } from "../validations/clothes.validation";
+const router = express.Router();
 
 
 router.post(
@@ -15,8 +23,14 @@ router.post(
   uploadClothes
 );
 
+router.get("/", authMiddleware, getMyWardrobe);
+
+router.get("/favorites",authMiddleware,getFavoriteClothes);
+
 router.delete("/:id",authMiddleware,deleteClothing);
 
-router.put("/:id",authMiddleware,updateClothing);
+router.put("/:id",authMiddleware,validate(updateClothingSchema),updateClothing);
+
+router.patch("/:id/favorite",authMiddleware,toggleFavorite);
 
 export default router;

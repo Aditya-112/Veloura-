@@ -66,6 +66,8 @@ export const login = async(req:Request ,res: Response)=>{
                 expiresIn :"7d",
             }
         );
+        // console.log("Token from cookie:");
+        // console.log(token);
   const { password: _, ...userWithoutPassword } = user.toObject();
 
 res.cookie("token", token, {
@@ -87,19 +89,48 @@ res.status(200).json({
         });
     }
 };
-
 export const getProfile = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-    res.status(200).json({
+    const user = await User.findById(req.user?.id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
       message: "Profile fetched successfully",
-      user: req.user,
+      user,
     });
+
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: "Internal Server Error",
+    });
+  }
+};
+
+export const logout = async(
+  req:Request,
+  res:Response
+) => {
+  try{
+    res.clearCookie("token",{
+      httpOnly:true,
+      secure:false,
+      sameSite:"lax",
+    });
+
+    return res.status(200).json({
+      message:"Logout Successful",
+    });
+  }catch(error){
+    return res.status(500).json({
+      message: "Internal Server Error"
     });
   }
 };
