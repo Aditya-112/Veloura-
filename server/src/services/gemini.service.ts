@@ -127,12 +127,6 @@ export const analyzeClothing = async (
     const ai = new GoogleGenAI({ apiKey });
     const modelName = "gemini-2.5-flash-lite";
 
-    console.log("========== GEMINI REQUEST ==========");
-    console.log("Model:", modelName);
-    console.log("Mime:", mimeType);
-    console.log("Image Size:", imageBuffer.length, "bytes");
-    console.log("====================================");
-
     const response = await ai.models.generateContent({
       model: modelName,
       contents: [
@@ -153,16 +147,6 @@ export const analyzeClothing = async (
       ],
     });
 
-    console.log("========== COMPLETE GEMINI RESPONSE ==========");
-    console.dir(response, { depth: null });
-    console.log("========== RESPONSE CANDIDATES ==========");
-    console.dir(response.candidates, { depth: null });
-    console.log("FINISH REASON:", response.candidates?.[0]?.finishReason);
-    console.log("SAFETY RATINGS:", response.candidates?.[0]?.safetyRatings);
-    console.log("PROMPT FEEDBACK:", (response as any).promptFeedback);
-    console.log("RESPONSE TEXT:", response.text);
-    console.log("==============================================");
-
     const text = response.text;
     if (!text) {
       throw new Error(`Gemini API returned empty response text. FinishReason: ${response.candidates?.[0]?.finishReason}`);
@@ -173,10 +157,6 @@ export const analyzeClothing = async (
       .replace(/```/g, "")
       .trim();
 
-    console.log("\n================ GEMINI RAW JSON ================\n");
-    console.log(cleaned);
-    console.log("\n=================================================\n");
-
     let parsed: any;
     try {
       parsed = JSON.parse(cleaned);
@@ -184,10 +164,6 @@ export const analyzeClothing = async (
       console.error("JSON Parse Error on Gemini output:", cleaned);
       throw err;
     }
-
-    console.log("========== PARSED METADATA ==========");
-    console.dir(parsed, { depth: null });
-    console.log("=====================================");
 
     // Normalize category mapping
     let category = parsed.category || "Tops";
