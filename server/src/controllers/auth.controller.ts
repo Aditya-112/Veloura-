@@ -1,101 +1,11 @@
-import { Request,Response } from "express";
-import bcrypt from "bcryptjs";
+import { Response } from "express";
 import User from "../models/user.model";
-import jwt from "jsonwebtoken";
 import { AuthRequest } from "../types/auth.types";
+import { uploadImage } from "../services/cloudinary.service";
 
-export const signup = async(req: Request,res:Response)=>{
-    try{
-        const{name,email,password} = req.body;
-        //check existing user 
-        const existingUser = await User.findOne({email});
-
-        if(existingUser){
-            return res.status(400).json({
-                message:"User already exists",
-            });
-        }
-        //Hash pass
-        const hashedPassword = await bcrypt.hash(password,10);
-        
-        // create user
-        const user = await User.create({
-            name,
-            email,
-            password:hashedPassword,
-        });
-
-        const { password: _, ...userWithoutPassword } = user.toObject();
-
-            res.status(201).json({
-         message: "User created successfully",
-            user: userWithoutPassword,
-            });
-
-    }catch(error){
-        console.error(error);
-        return res.status(500).json({
-            message:"Internal server Error",
-        });
-    }
-};
-
-export const login = async(req:Request ,res: Response)=>{
-    try{
-        const{email,password} = req.body;
-
-        const user = await User.findOne({email});
-
-        if(!user){
-            return res.status(400).json({
-                message :"Invalid credentials",
-            });
-        }
-        const isMatch = await bcrypt.compare(password,user.password);
-
-        if(!isMatch){
-            return res.status(400).json({
-            message :"Invalid credentials",
-            });
-        }
-
-        const token = jwt.sign(
-            {id:user._id},
-            process.env.JWT_SECRET as string,
-            {
-                expiresIn :"7d",
-            }
-        );
-        // console.log("Token from cookie:");
-        // console.log(token);
-  const { password: _, ...userWithoutPassword } = user.toObject();
-
-res.cookie("token", token, {
-  httpOnly: true,
-  secure: false, // true after deployment (HTTPS)
-  sameSite: "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-});
-
-res.status(200).json({
-  message: "Login Successful",
-  user: userWithoutPassword,
-});
-    }catch(error){
-        console.error(error);
-
-       return res.status(500).json({
-            message:"Internal Server Error",
-        });
-    }
-};
-export const getProfile = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const getProfile = async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findById(req.user?.id).select("-password");
-
     if (!user) {
       return res.status(404).json({
         message: "User not found",
@@ -106,7 +16,6 @@ export const getProfile = async (
       message: "Profile fetched successfully",
       user,
     });
-
   } catch (error) {
     return res.status(500).json({
       message: "Internal Server Error",
@@ -114,23 +23,69 @@ export const getProfile = async (
   }
 };
 
-export const logout = async(
-  req:Request,
-  res:Response
-) => {
-  try{
-    res.clearCookie("token",{
-      httpOnly:true,
-      secure:false,
-      sameSite:"lax",
-    });
+export const updateProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { name, firstName, lastName, avatar, gender } = req.body;
 
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (firstName !== undefined) user.firstName = firstName;
+    if (lastName !== undefined) user.lastName = lastName;
+
+    if (firstName || lastName) {
+      user.name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.name;
+    } else if (name) {
+      user.name = name;
+    }
+
+    if (gender !== undefined) user.gender = gender;
+
+    if (avatar !== undefined) {
+      user.avatar = avatar;
+    }
+
+    await user.save();
+
+    const { password: _, ...updatedUser } = user.toObject();
     return res.status(200).json({
-      message:"Logout Successful",
+      message: "Profile updated successfully",
+      user: updatedUser,
     });
-  }catch(error){
-    return res.status(500).json({
-      message: "Internal Server Error"
+  } catch (error) {
+    console.error("Update Profile Error:", error);
+    return res.status(500).json({ message: "Failed to update profile" });
+  }
+};
+
+export const uploadAvatar = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file provided" });
+    }
+
+    const uploadResult = await uploadImage(req.file);
+    const avatarUrl = uploadResult.secure_url;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.avatar = avatarUrl;
+    await user.save();
+
+    const { password: _, ...updatedUser } = user.toObject();
+    return res.status(200).json({
+      message: "Avatar uploaded successfully",
+      user: updatedUser,
     });
+  } catch (error) {
+    console.error("Upload Avatar Error:", error);
+    return res.status(500).json({ message: "Failed to upload avatar" });
   }
 };

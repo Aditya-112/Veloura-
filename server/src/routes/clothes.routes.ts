@@ -5,11 +5,11 @@ import {uploadClothes,
   deleteClothing,
   updateClothing,
   toggleFavorite,
-  getFavoriteClothes} from "../controllers/clothes.controller";
+  getFavoriteClothes,
+  wearClothingItems} from "../controllers/clothes.controller";
 
 
 import authMiddleware from "../middleware/auth.middleware";
-import { AudioResponseFormat } from "@google/genai";
 
 import validate from "../middleware/validate";
 import { updateClothingSchema } from "../validations/clothes.validation";
@@ -26,6 +26,8 @@ router.post(
 router.get("/", authMiddleware, getMyWardrobe);
 
 router.get("/favorites",authMiddleware,getFavoriteClothes);
+
+router.post("/wear", authMiddleware, wearClothingItems);
 
 router.delete("/:id",authMiddleware,deleteClothing);
 
