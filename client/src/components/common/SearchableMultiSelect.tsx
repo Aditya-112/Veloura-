@@ -21,11 +21,14 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [openUpward, setOpenUpward] = useState(false);
+  const [maxListHeight, setMaxListHeight] = useState(220);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [portalPosition, setPortalPosition] = useState<{ top: number; left: number; width: number }>({
+  const [portalPosition, setPortalPosition] = useState<{ top: number; bottom: number; left: number; width: number }>({
     top: 0,
+    bottom: 0,
     left: 0,
     width: 0,
   });
@@ -33,8 +36,22 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
   const updatePosition = () => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      // Determine if dropdown should open upward when space below is tight
+      const shouldOpenUp = spaceBelow < 250 && spaceAbove > spaceBelow;
+      setOpenUpward(shouldOpenUp);
+
+      const availableSpace = shouldOpenUp ? spaceAbove : spaceBelow;
+      // Constrain scroll list max-height so total dropdown fits cleanly within available viewport space
+      const maxH = Math.max(90, Math.min(220, availableSpace - 80));
+      setMaxListHeight(maxH);
+
       setPortalPosition({
         top: rect.bottom + 6,
+        bottom: viewportHeight - rect.top + 6,
         left: rect.left,
         width: rect.width,
       });
@@ -42,7 +59,7 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen && usePortal) {
+    if (isOpen) {
       updatePosition();
       window.addEventListener("resize", updatePosition);
       window.addEventListener("scroll", updatePosition, true);
@@ -91,18 +108,28 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
       ref={dropdownRef}
       style={
         usePortal
-          ? {
-              position: "fixed",
-              top: `${portalPosition.top}px`,
-              left: `${portalPosition.left}px`,
-              width: `${portalPosition.width}px`,
-              zIndex: 9999,
-            }
+          ? openUpward
+            ? {
+                position: "fixed",
+                bottom: `${portalPosition.bottom}px`,
+                left: `${portalPosition.left}px`,
+                width: `${portalPosition.width}px`,
+                zIndex: 9999,
+              }
+            : {
+                position: "fixed",
+                top: `${portalPosition.top}px`,
+                left: `${portalPosition.left}px`,
+                width: `${portalPosition.width}px`,
+                zIndex: 9999,
+              }
           : undefined
       }
       className={`${
         usePortal
           ? ""
+          : openUpward
+          ? "absolute left-0 right-0 bottom-full mb-1.5 z-50"
           : "absolute left-0 right-0 top-full mt-1.5 z-50"
       } rounded-2xl border border-slate-200/80 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95 duration-150`}
     >
@@ -120,7 +147,10 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
       </div>
 
       {/* Options List */}
-      <div className="max-h-[260px] overflow-y-auto space-y-1 pr-3 pb-4 pt-0.5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+      <div
+        style={{ maxHeight: `${maxListHeight}px` }}
+        className="overflow-y-auto space-y-1 pr-3 pb-2 pt-0.5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400"
+      >
         {filteredOptions.length === 0 ? (
           <div className="p-4 text-center text-xs text-slate-400">
             No matching options found
