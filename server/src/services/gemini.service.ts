@@ -125,7 +125,7 @@ export const analyzeClothing = async (
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    const modelName = "gemini-2.5-flash-lite";
+    const modelName = "gemini-3.5-flash-lite";
 
     const response = await ai.models.generateContent({
       model: modelName,
